@@ -35,6 +35,14 @@ app.use(
   })
 );
 
+// Base API endpoint
+app.get('/api', (req, res) => {
+  res.status(200).json({
+    success: true,
+    message: 'Taskify API is running smoothly',
+  });
+});
+
 // Health-check endpoint
 app.get('/api/health', (req, res) => {
   const dbStates = {
