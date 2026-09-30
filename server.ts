@@ -7,7 +7,7 @@ import { createServer as createViteServer } from 'vite';
 import connectDB from './server/config/db.js';
 import app from './server/app.js';
 
-const PORT = 3000;
+const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 
 async function bootstrap() {
   // Connect to MongoDB using the configured credentials
