@@ -9,6 +9,9 @@
     "server": "node server/server.js",
     "server:dev": "node --watch server/server.js",
     "build": "vite build",
+    "cap:add": "cap add android",
+    "cap:sync": "cap sync android",
+    "cap:open": "cap open android",
     "preview": "vite preview",
     "clean": "rm -rf dist server.js",
     "lint": "tsc --noEmit"

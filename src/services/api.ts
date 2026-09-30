@@ -1,6 +1,7 @@
 import { Task, TaskList, TaskQueryParams, User } from '../types';
 
-const BASE_URL = '/api';
+const API_ORIGIN = import.meta.env.VITE_API_URL ? (import.meta.env.VITE_API_URL as string).replace(/\/$/, '') : '';
+const BASE_URL = `${API_ORIGIN}/api`;
 
 interface ApiResponse<T = any> {
   success: boolean;

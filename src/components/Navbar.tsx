@@ -1,6 +1,7 @@
 import React from 'react';
 import { useAuth } from '../context/AuthContext';
 import { MaterialIcon } from './MaterialIcon';
+import { PWAInstallButton } from './PWAInstallButton';
 
 interface NavbarProps {
   onNavigateHome?: () => void;
@@ -31,7 +32,10 @@ export const Navbar: React.FC<NavbarProps> = ({ onNavigateHome }) => {
         </div>
 
         {/* Right Actions */}
-        <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
+        <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
+          {/* In-App PWA Install Button */}
+          <PWAInstallButton />
+
           {/* Theme Toggle Button */}
           <button
             onClick={toggleTheme}
