@@ -1,0 +1,30 @@
+{
+  "name": "taskify-server",
+  "version": "1.0.0",
+  "description": "Production-quality backend for Taskify multi-user task management application",
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "keywords": [
+    "taskflow",
+    "express",
+    "mongodb",
+    "mongoose",
+    "jwt",
+    "rest-api"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.3",
+    "express": "^4.21.2",
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "^9.3.2"
+  }
+}

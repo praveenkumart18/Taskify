@@ -1,0 +1,326 @@
+{
+  "info": {
+    "name": "Taskify API Collection",
+    "description": "Complete Postman collection for Taskify - Multi-user task manager and random task picker.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000/api",
+      "type": "string"
+    },
+    {
+      "key": "listId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "taskId",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "System Health",
+      "item": [
+        {
+          "name": "API Health Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/health",
+              "host": ["{{baseUrl}}"],
+              "path": ["health"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Authentication",
+      "item": [
+        {
+          "name": "Register User",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Jane Doe\",\n  \"email\": \"jane@example.com\",\n  \"password\": \"Password123!\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/register",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "register"]
+            }
+          }
+        },
+        {
+          "name": "Login User",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"jane@example.com\",\n  \"password\": \"Password123!\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "login"]
+            }
+          }
+        },
+        {
+          "name": "Get Current User Profile",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/auth/me",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "me"]
+            }
+          }
+        },
+        {
+          "name": "Logout User",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/auth/logout",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "logout"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Task Lists",
+      "item": [
+        {
+          "name": "Get All Task Lists",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/tasklists",
+              "host": ["{{baseUrl}}"],
+              "path": ["tasklists"]
+            }
+          }
+        },
+        {
+          "name": "Create Task List",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Interview Preparation\",\n  \"description\": \"DSA, system design, mock interviews\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/tasklists",
+              "host": ["{{baseUrl}}"],
+              "path": ["tasklists"]
+            }
+          }
+        },
+        {
+          "name": "Get Task List By ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/tasklists/{{listId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["tasklists", "{{listId}}"]
+            }
+          }
+        },
+        {
+          "name": "Update Task List",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Interview Prep & Systems\",\n  \"description\": \"Updated description\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/tasklists/{{listId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["tasklists", "{{listId}}"]
+            }
+          }
+        },
+        {
+          "name": "Delete Task List",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/tasklists/{{listId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["tasklists", "{{listId}}"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Tasks",
+      "item": [
+        {
+          "name": "Get Tasks for List (Search, Filter, Sort, Paginate)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/tasklists/{{listId}}/tasks?status=pending&priority=high&search=&sort=newest&page=1&limit=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["tasklists", "{{listId}}", "tasks"],
+              "query": [
+                { "key": "status", "value": "pending" },
+                { "key": "priority", "value": "high" },
+                { "key": "search", "value": "" },
+                { "key": "sort", "value": "newest" },
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "20" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create Task in List",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Practice React Hooks\",\n  \"description\": \"Study useState and custom hooks\",\n  \"priority\": \"high\",\n  \"dueDate\": \"2026-10-15\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/tasklists/{{listId}}/tasks",
+              "host": ["{{baseUrl}}"],
+              "path": ["tasklists", "{{listId}}", "tasks"]
+            }
+          }
+        },
+        {
+          "name": "Get Task By ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/tasks/{{taskId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["tasks", "{{taskId}}"]
+            }
+          }
+        },
+        {
+          "name": "Update Task Details",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Practice Advanced React Hooks\",\n  \"priority\": \"medium\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/tasks/{{taskId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["tasks", "{{taskId}}"]
+            }
+          }
+        },
+        {
+          "name": "Toggle Task Status",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/tasks/{{taskId}}/status",
+              "host": ["{{baseUrl}}"],
+              "path": ["tasks", "{{taskId}}", "status"]
+            }
+          }
+        },
+        {
+          "name": "Delete Task",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/tasks/{{taskId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["tasks", "{{taskId}}"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Random Task Selection",
+      "item": [
+        {
+          "name": "Get Random Task ($sample)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/tasklists/{{listId}}/random",
+              "host": ["{{baseUrl}}"],
+              "path": ["tasklists", "{{listId}}", "random"]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
