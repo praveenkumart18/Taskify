@@ -125,6 +125,20 @@ export const taskApi = {
       body: JSON.stringify(taskData),
     }),
 
+  createBulk: (
+    listId: string,
+    tasks: Array<{
+      name: string;
+      number?: number;
+      description?: string;
+      priority?: 'low' | 'medium' | 'high';
+    }>
+  ) =>
+    request<Task[]>(`/tasklists/${listId}/tasks/bulk`, {
+      method: 'POST',
+      body: JSON.stringify({ tasks }),
+    }),
+
   getById: (taskId: string) => request<Task>(`/tasks/${taskId}`, { method: 'GET' }),
 
   update: (taskId: string, taskData: Partial<Task>) =>
@@ -144,8 +158,10 @@ export const taskApi = {
       method: 'DELETE',
     }),
 
-  getRandomTask: (listId: string) =>
-    request<Task>(`/tasklists/${listId}/random`, {
+  getRandomTask: (listId: string, excludeIds: string[] = []) => {
+    const qs = excludeIds.length > 0 ? `?exclude=${encodeURIComponent(excludeIds.join(','))}` : '';
+    return request<Task>(`/tasklists/${listId}/random${qs}`, {
       method: 'GET',
-    }),
+    });
+  },
 };

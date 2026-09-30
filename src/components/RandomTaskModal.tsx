@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { MaterialIcon } from './MaterialIcon';
 import { Task } from '../types';
 import { taskApi } from '../services/api';
@@ -8,7 +8,6 @@ interface RandomTaskModalProps {
   onClose: () => void;
   listId: string;
   listName: string;
-  onTaskStatusToggled: (taskId: string, newStatus: string) => void;
 }
 
 export const RandomTaskModal: React.FC<RandomTaskModalProps> = ({
@@ -16,23 +15,24 @@ export const RandomTaskModal: React.FC<RandomTaskModalProps> = ({
   onClose,
   listId,
   listName,
-  onTaskStatusToggled,
 }) => {
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
-  const [allCompleted, setAllCompleted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [animating, setAnimating] = useState(false);
   const [tickerTitle, setTickerTitle] = useState('Shuffling tasks...');
   const [error, setError] = useState('');
-  const [markingComplete, setMarkingComplete] = useState(false);
+  const [rollCount, setRollCount] = useState(0);
+
+  // History buffer of recently rolled task IDs to enforce the min 2-roll cooldown
+  const recentHistoryRef = useRef<string[]>([]);
 
   const sampleTitles = [
-    'Refactoring code...',
-    'Reviewing system design...',
-    'Writing test suites...',
-    'Optimizing queries...',
-    'Reviewing documentation...',
-    'Practicing algorithm...',
+    'Shuffling through tasks...',
+    'Checking cooldown history...',
+    'Analyzing task pool...',
+    'Rolling the dice...',
+    'Picking next challenge...',
+    'Almost ready...',
   ];
 
   const rollTask = async () => {
@@ -41,14 +41,16 @@ export const RandomTaskModal: React.FC<RandomTaskModalProps> = ({
       setAnimating(true);
       setError('');
 
-      // Play short roulette ticker animation (~800ms)
+      // Play short roulette ticker animation (~750ms)
       let count = 0;
       const interval = setInterval(() => {
         setTickerTitle(sampleTitles[count % sampleTitles.length]);
         count++;
-      }, 130);
+      }, 120);
 
-      const res = await taskApi.getRandomTask(listId);
+      // Exclude the last 2 rolled tasks from selection (min 2-roll cooldown)
+      const lastTwoExcludes = recentHistoryRef.current.slice(-2);
+      const res = await taskApi.getRandomTask(listId, lastTwoExcludes);
 
       setTimeout(() => {
         clearInterval(interval);
@@ -57,12 +59,14 @@ export const RandomTaskModal: React.FC<RandomTaskModalProps> = ({
 
         if (res.data) {
           setSelectedTask(res.data);
-          setAllCompleted(!!res.allCompleted);
+          setRollCount((prev) => prev + 1);
+
+          // Add this task to the recent rolls history buffer
+          recentHistoryRef.current = [...recentHistoryRef.current.slice(-4), res.data._id];
         } else {
           setSelectedTask(null);
-          setAllCompleted(false);
         }
-      }, 800);
+      }, 750);
     } catch (err: any) {
       setAnimating(false);
       setLoading(false);
@@ -72,27 +76,16 @@ export const RandomTaskModal: React.FC<RandomTaskModalProps> = ({
 
   useEffect(() => {
     if (isOpen) {
+      recentHistoryRef.current = [];
+      setRollCount(0);
       rollTask();
     } else {
       setSelectedTask(null);
       setError('');
+      recentHistoryRef.current = [];
+      setRollCount(0);
     }
   }, [isOpen, listId]);
-
-  const handleToggleStatus = async () => {
-    if (!selectedTask) return;
-    try {
-      setMarkingComplete(true);
-      const newStatus = selectedTask.status === 'pending' ? 'completed' : 'pending';
-      await taskApi.toggleStatus(selectedTask._id, newStatus);
-      setSelectedTask({ ...selectedTask, status: newStatus as any });
-      onTaskStatusToggled(selectedTask._id, newStatus);
-    } catch (err: any) {
-      setError(err.message || 'Failed to update task status');
-    } finally {
-      setMarkingComplete(false);
-    }
-  };
 
   if (!isOpen) return null;
 
@@ -132,9 +125,21 @@ export const RandomTaskModal: React.FC<RandomTaskModalProps> = ({
             <span>Random Task Picker</span>
           </div>
 
-          <p className="text-xs text-slate-500 dark:text-slate-400 mb-4 sm:mb-6 truncate">
-            From: <span className="font-semibold text-slate-700 dark:text-slate-300">{listName}</span>
-          </p>
+          {/* List name & Cooldown guarantee badge */}
+          <div className="flex flex-col items-center gap-1 mb-4 sm:mb-6">
+            <p className="text-xs text-slate-500 dark:text-slate-400 truncate max-w-xs">
+              From: <span className="font-semibold text-slate-700 dark:text-slate-300">{listName}</span>
+            </p>
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800/90 text-slate-600 dark:text-slate-400 text-[10px] font-semibold border border-slate-200 dark:border-slate-700/80">
+              <MaterialIcon name="history_toggle_off" className="text-xs text-teal-500" />
+              <span>Cooldown: Won't repeat last 2 rolls</span>
+              {rollCount > 0 && (
+                <span className="ml-1 pl-1 border-l border-slate-300 dark:border-slate-700 text-teal-600 dark:text-teal-400 font-bold font-mono">
+                  Roll #{rollCount}
+                </span>
+              )}
+            </div>
+          </div>
 
           {/* Animation / Shuffling View */}
           {animating ? (
@@ -143,7 +148,7 @@ export const RandomTaskModal: React.FC<RandomTaskModalProps> = ({
               <p className="font-mono text-sm font-semibold text-slate-800 dark:text-slate-200 animate-pulse">
                 {tickerTitle}
               </p>
-              <p className="text-[11px] text-slate-400 mt-1">Selecting next task...</p>
+              <p className="text-[11px] text-slate-400 mt-1">Excluding recently picked tasks...</p>
             </div>
           ) : error ? (
             <div className="p-3.5 sm:p-4 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-500 text-xs sm:text-sm flex items-center gap-2 mb-5 sm:mb-6">
@@ -153,13 +158,6 @@ export const RandomTaskModal: React.FC<RandomTaskModalProps> = ({
           ) : selectedTask ? (
             /* Selected Task Card */
             <div className="text-left p-4 sm:p-6 rounded-2xl bg-slate-50 dark:bg-slate-950/70 border border-slate-200 dark:border-slate-800 shadow-inner mb-5 sm:mb-6 relative group">
-              {allCompleted && (
-                <div className="mb-3 px-3 py-1.5 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-500 text-xs font-semibold flex items-center gap-2">
-                  <MaterialIcon name="check_circle" className="text-base shrink-0" filled />
-                  <span>All tasks completed! Selected a review task:</span>
-                </div>
-              )}
-
               {/* Number and Name */}
               <div className="flex items-center gap-2 mb-2 sm:mb-3">
                 {selectedTask.number !== undefined && selectedTask.number !== null && (
@@ -174,35 +172,12 @@ export const RandomTaskModal: React.FC<RandomTaskModalProps> = ({
 
               {/* Description */}
               {selectedTask.description ? (
-                <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 leading-relaxed mb-3 sm:mb-4 break-words">
+                <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 leading-relaxed break-words">
                   {selectedTask.description}
                 </p>
               ) : (
-                <p className="text-xs text-slate-400 italic mb-3 sm:mb-4">No additional description</p>
+                <p className="text-xs text-slate-400 italic">No additional description</p>
               )}
-
-              {/* Badges */}
-              <div className="flex flex-wrap items-center gap-2 pt-3 border-t border-slate-200 dark:border-slate-800/80 text-xs">
-                {/* Status */}
-                <span
-                  className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg font-semibold uppercase text-[10px] tracking-wider ${
-                    selectedTask.status === 'completed'
-                      ? 'bg-emerald-500/20 text-emerald-500 border border-emerald-500/30'
-                      : 'bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300'
-                  }`}
-                >
-                  <MaterialIcon name="check_circle" className="text-sm" filled={selectedTask.status === 'completed'} />
-                  {selectedTask.status}
-                </span>
-
-                {/* Due Date */}
-                {selectedTask.dueDate && (
-                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400 text-[11px]">
-                    <MaterialIcon name="calendar_today" className="text-xs" />
-                    {new Date(selectedTask.dueDate).toLocaleDateString()}
-                  </span>
-                )}
-              </div>
             </div>
           ) : (
             /* Empty state */
@@ -217,34 +192,20 @@ export const RandomTaskModal: React.FC<RandomTaskModalProps> = ({
           )}
 
           {/* Action Buttons */}
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-2.5 sm:gap-3">
-            {selectedTask && (
-              <button
-                type="button"
-                onClick={handleToggleStatus}
-                disabled={markingComplete}
-                className={`w-full sm:w-auto flex-1 min-h-[44px] flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl font-bold text-xs sm:text-sm active:scale-95 transition-all shadow-md cursor-pointer ${
-                  selectedTask.status === 'pending'
-                    ? 'bg-emerald-500 hover:bg-emerald-400 text-slate-950 shadow-emerald-500/20'
-                    : 'bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-300'
-                }`}
-              >
-                {markingComplete ? (
-                  <MaterialIcon name="progress_activity" className="text-base animate-spin" />
-                ) : (
-                  <MaterialIcon name="check_circle" className="text-base" filled />
-                )}
-                <span>
-                  {selectedTask.status === 'pending' ? 'Mark as Completed' : 'Mark as Pending'}
-                </span>
-              </button>
-            )}
+          <div className="flex items-center justify-center gap-2.5 sm:gap-3">
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 min-h-[44px] px-5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 active:scale-95 font-semibold text-xs sm:text-sm transition-all cursor-pointer"
+            >
+              Close
+            </button>
 
             <button
               type="button"
               onClick={rollTask}
               disabled={loading || animating}
-              className="w-full sm:w-auto flex-1 min-h-[44px] flex items-center justify-center gap-1.5 px-5 py-2.5 rounded-xl bg-teal-400 hover:bg-teal-300 active:scale-95 text-slate-950 font-bold text-xs sm:text-sm transition-all shadow-md shadow-teal-500/20 disabled:opacity-50 cursor-pointer"
+              className="flex-1 min-h-[44px] flex items-center justify-center gap-1.5 px-5 py-2.5 rounded-xl bg-teal-400 hover:bg-teal-300 active:scale-95 text-slate-950 font-bold text-xs sm:text-sm transition-all shadow-md shadow-teal-500/20 disabled:opacity-50 cursor-pointer"
             >
               <MaterialIcon name="casino" className="text-base" />
               <span>Roll Again</span>

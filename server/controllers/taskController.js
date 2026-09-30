@@ -190,6 +190,84 @@ export const createTask = async (req, res) => {
 };
 
 /**
+ * @desc    Create multiple tasks in bulk for a task list
+ * @route   POST /api/tasklists/:listId/tasks/bulk
+ * @access  Private
+ */
+export const createBulkTasks = async (req, res) => {
+  try {
+    const listId = req.params.listId || req.body.listId;
+    const { tasks } = req.body;
+
+    if (!Array.isArray(tasks) || tasks.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Tasks list is required and must contain at least one task',
+      });
+    }
+
+    const taskList = await verifyTaskListOwnership(listId, req.user.id);
+    if (!taskList) {
+      return res.status(404).json({
+        success: false,
+        message: 'Task list not found',
+      });
+    }
+
+    // Determine current highest task number to auto-increment sequentially
+    const lastTask = await Task.findOne({ taskListId: taskList._id }).sort({ number: -1 });
+    let currentNumber = lastTask && typeof lastTask.number === 'number' ? lastTask.number : 0;
+
+    const toInsert = [];
+    for (const item of tasks) {
+      const taskName = (item.name || item.title || '').trim();
+      if (!taskName) continue;
+
+      let taskNum = item.number && !isNaN(item.number) && item.number >= 1 
+        ? parseInt(item.number, 10) 
+        : ++currentNumber;
+      
+      let taskPriority = 'medium';
+      if (item.priority && ['low', 'medium', 'high'].includes(item.priority.toLowerCase())) {
+        taskPriority = item.priority.toLowerCase();
+      }
+
+      toInsert.push({
+        taskListId: taskList._id,
+        number: taskNum,
+        name: taskName,
+        title: taskName,
+        description: item.description ? item.description.trim() : '',
+        priority: taskPriority,
+        status: 'pending',
+      });
+    }
+
+    if (toInsert.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'No valid tasks found to create',
+      });
+    }
+
+    const created = await Task.insertMany(toInsert);
+
+    return res.status(201).json({
+      success: true,
+      message: `Successfully created ${created.length} tasks`,
+      count: created.length,
+      data: created,
+    });
+  } catch (error) {
+    console.error('createBulkTasks error:', error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || 'Server error while creating tasks in bulk',
+    });
+  }
+};
+
+/**
  * @desc    Get a single task by ID (ownership verified through TaskList)
  * @route   GET /api/tasks/:taskId
  * @access  Private
@@ -403,6 +481,7 @@ export const updateTaskStatus = async (req, res) => {
 export const getRandomTask = async (req, res) => {
   try {
     const { listId } = req.params;
+    const { exclude } = req.query;
 
     if (!mongoose.Types.ObjectId.isValid(listId)) {
       return res.status(400).json({
@@ -422,50 +501,57 @@ export const getRandomTask = async (req, res) => {
 
     const listObjectId = new mongoose.Types.ObjectId(listId);
 
-    // 1. Prioritize PENDING tasks using MongoDB $sample
-    const pendingRandom = await Task.aggregate([
-      {
-        $match: {
-          taskListId: listObjectId,
-          status: 'pending',
-        },
-      },
-      {
-        $sample: { size: 1 },
-      },
-    ]);
-
-    if (pendingRandom && pendingRandom.length > 0) {
+    // Total tasks in list
+    const totalCount = await Task.countDocuments({ taskListId: listObjectId });
+    if (totalCount === 0) {
       return res.status(200).json({
         success: true,
-        message: 'Random pending task selected successfully',
-        data: pendingRandom[0],
+        message: 'No tasks found in this task list',
+        data: null,
       });
     }
 
-    // 2. If no pending tasks exist, pick from COMPLETED tasks
-    const completedRandom = await Task.aggregate([
-      {
-        $match: {
-          taskListId: listObjectId,
-          status: 'completed',
-        },
-      },
-      {
-        $sample: { size: 1 },
-      },
+    // Parse excluded task IDs (to enforce minimum 2-roll cooldown)
+    let excludeObjectIds = [];
+    if (exclude) {
+      const rawIds = Array.isArray(exclude) ? exclude : String(exclude).split(',');
+      excludeObjectIds = rawIds
+        .map((id) => id.trim())
+        .filter((id) => mongoose.Types.ObjectId.isValid(id))
+        .map((id) => new mongoose.Types.ObjectId(id));
+    }
+
+    // Match filter: exclude recent tasks if enough tasks exist
+    let matchFilter = { taskListId: listObjectId };
+    if (excludeObjectIds.length > 0 && totalCount > 1) {
+      // Ensure we leave at least 1 candidate task to pick from
+      const maxToExclude = Math.min(excludeObjectIds.length, totalCount - 1);
+      const effectiveExcludes = excludeObjectIds.slice(-maxToExclude);
+      matchFilter._id = { $nin: effectiveExcludes };
+    }
+
+    // Pick a random task using MongoDB $sample
+    let randomTasks = await Task.aggregate([
+      { $match: matchFilter },
+      { $sample: { size: 1 } },
     ]);
 
-    if (completedRandom && completedRandom.length > 0) {
+    // Fallback: If no task matched the exclusion filter, sample from all tasks
+    if (!randomTasks || randomTasks.length === 0) {
+      randomTasks = await Task.aggregate([
+        { $match: { taskListId: listObjectId } },
+        { $sample: { size: 1 } },
+      ]);
+    }
+
+    if (randomTasks && randomTasks.length > 0) {
       return res.status(200).json({
         success: true,
-        message: 'All tasks in this list are completed! Selected a completed task for review',
-        allCompleted: true,
-        data: completedRandom[0],
+        message: 'Random task selected successfully',
+        data: randomTasks[0],
       });
     }
 
-    // 3. No tasks at all in this list
     return res.status(200).json({
       success: true,
       message: 'No tasks found in this task list',

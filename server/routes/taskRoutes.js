@@ -2,6 +2,7 @@ import express from 'express';
 import {
   getTasksByList,
   createTask,
+  createBulkTasks,
   getTaskById,
   updateTask,
   deleteTask,
@@ -14,6 +15,9 @@ const router = express.Router({ mergeParams: true });
 
 // Protect all task endpoints with authentication
 router.use(protect);
+
+// Bulk create: /api/tasklists/:listId/tasks/bulk
+router.post('/bulk', createBulkTasks);
 
 // Nested routes: /api/tasklists/:listId/tasks
 router.route('/')
