@@ -58,10 +58,14 @@ export const AuthPage: React.FC<AuthPageProps> = ({ initialMode = 'login', onSuc
       <div className="w-full max-w-md">
         {/* Brand Header */}
         <div className="text-center mb-6 sm:mb-8">
-          <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-gradient-to-tr from-teal-500 to-emerald-400 shadow-xl shadow-teal-500/20 mb-3">
-            <MaterialIcon name="task_alt" className="text-slate-950 text-2xl font-bold" />
+          <div className="relative inline-flex items-center justify-center w-14 h-14 rounded-2xl overflow-hidden shadow-xl shadow-teal-500/25 mb-3 border border-teal-500/30 bg-slate-900 group">
+            <img
+              src="/app-logo.png"
+              alt="Taskify"
+              className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+            />
           </div>
-          <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
+          <h2 className="text-xl sm:text-2xl font-extrabold tracking-tight text-slate-900 dark:text-white">
             {isLogin ? 'Welcome Back to Taskify' : 'Create Your Account'}
           </h2>
           <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1 max-w-xs mx-auto">
