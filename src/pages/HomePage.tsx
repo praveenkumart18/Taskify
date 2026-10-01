@@ -1,9 +1,10 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { TaskList } from '../types';
 import { taskListApi } from '../services/api';
 import { MaterialIcon } from '../components/MaterialIcon';
 import { TaskListModal } from '../components/TaskListModal';
 import { ConfirmModal } from '../components/ConfirmModal';
+import { RandomTaskModal } from '../components/RandomTaskModal';
 
 interface HomePageProps {
   onSelectList: (listId: string) => void;
@@ -17,6 +18,15 @@ export const HomePage: React.FC<HomePageProps> = ({ onSelectList }) => {
   const [editingList, setEditingList] = useState<TaskList | null>(null);
   const [listToDelete, setListToDelete] = useState<TaskList | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  // Random task modal triggered directly from card icon
+  const [randomizingList, setRandomizingList] = useState<TaskList | null>(null);
+
+  // Drag and Drop State
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+  const [isSavingOrder, setIsSavingOrder] = useState(false);
+  const isDraggingRef = useRef(false);
 
   const fetchLists = async () => {
     try {
@@ -62,6 +72,61 @@ export const HomePage: React.FC<HomePageProps> = ({ onSelectList }) => {
     }
   };
 
+  // Drag and drop handlers
+  const handleDragStart = (e: React.DragEvent, index: number) => {
+    isDraggingRef.current = true;
+    setDraggedIndex(index);
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', `${index}`);
+  };
+
+  const handleDragEnter = (e: React.DragEvent, index: number) => {
+    e.preventDefault();
+    if (draggedIndex === null || draggedIndex === index) return;
+    setDragOverIndex(index);
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  };
+
+  const handleDrop = async (e: React.DragEvent, targetIndex: number) => {
+    e.preventDefault();
+    if (draggedIndex === null || draggedIndex === targetIndex) {
+      setDraggedIndex(null);
+      setDragOverIndex(null);
+      return;
+    }
+
+    const reordered = [...taskLists];
+    const [moved] = reordered.splice(draggedIndex, 1);
+    reordered.splice(targetIndex, 0, moved);
+
+    // Optimistic UI update
+    setTaskLists(reordered);
+    setDraggedIndex(null);
+    setDragOverIndex(null);
+
+    try {
+      setIsSavingOrder(true);
+      await taskListApi.reorder(reordered.map((l) => l._id));
+    } catch (err: any) {
+      console.error('Failed to save reorder:', err);
+      fetchLists(); // Revert on error
+    } finally {
+      setIsSavingOrder(false);
+    }
+  };
+
+  const handleDragEnd = () => {
+    setDraggedIndex(null);
+    setDragOverIndex(null);
+    setTimeout(() => {
+      isDraggingRef.current = false;
+    }, 150);
+  };
+
   const formatRelativeDate = (dateStr: string) => {
     try {
       const date = new Date(dateStr);
@@ -91,22 +156,40 @@ export const HomePage: React.FC<HomePageProps> = ({ onSelectList }) => {
               {taskLists.length} {taskLists.length === 1 ? 'List' : 'Lists'}
             </span>
           </div>
-          <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1 max-w-xl">
-            Categorize coursework, project sprints, interview prep, and personal goals.
-          </p>
+          <div className="flex items-center gap-3 mt-1">
+            <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 max-w-xl">
+              Categorize coursework, project sprints, interview prep, and personal goals.
+            </p>
+            {taskLists.length > 1 && (
+              <span className="hidden sm:inline-flex items-center gap-1 text-[11px] font-semibold text-slate-400 dark:text-slate-500 shrink-0">
+                <MaterialIcon name="drag_indicator" className="text-xs text-teal-500" />
+                Drag cards to reorder
+              </span>
+            )}
+          </div>
         </div>
 
-        {/* New Task List Button */}
-        <button
-          onClick={() => {
-            setEditingList(null);
-            setIsModalOpen(true);
-          }}
-          className="inline-flex items-center justify-center gap-2 min-h-[44px] px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm text-slate-950 bg-teal-400 hover:bg-teal-300 active:scale-[0.98] transition-all shadow-md shadow-teal-500/20 cursor-pointer w-full sm:w-auto shrink-0 select-none"
-        >
-          <MaterialIcon name="create_new_folder" className="text-lg" />
-          <span>New Task List</span>
-        </button>
+        {/* Action Controls */}
+        <div className="flex items-center gap-2.5 w-full sm:w-auto">
+          {isSavingOrder && (
+            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-teal-500/10 border border-teal-500/20 text-teal-600 dark:text-teal-400 text-xs font-semibold animate-pulse">
+              <MaterialIcon name="sync" className="text-sm animate-spin" />
+              <span>Saving order...</span>
+            </span>
+          )}
+
+          {/* New Task List Button */}
+          <button
+            onClick={() => {
+              setEditingList(null);
+              setIsModalOpen(true);
+            }}
+            className="inline-flex items-center justify-center gap-2 min-h-[44px] px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm text-slate-950 bg-teal-400 hover:bg-teal-300 active:scale-[0.98] transition-all shadow-md shadow-teal-500/20 cursor-pointer w-full sm:w-auto shrink-0 select-none"
+          >
+            <MaterialIcon name="create_new_folder" className="text-lg" />
+            <span>New Task List</span>
+          </button>
+        </div>
       </div>
 
       {/* Quick Overview Stats Strip for mobile & laptop */}
@@ -143,7 +226,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onSelectList }) => {
             <div className="min-w-0">
               <span className="text-[11px] font-semibold text-slate-400 block truncate">Smart Picker</span>
               <span className="text-xs font-semibold text-slate-700 dark:text-slate-300 block truncate">
-                Ready inside each list
+                Click 🎲 on any list card
               </span>
             </div>
           </div>
@@ -203,28 +286,71 @@ export const HomePage: React.FC<HomePageProps> = ({ onSelectList }) => {
           </button>
         </div>
       ) : (
-        /* Task Lists Grid */
+        /* Task Lists Grid with Drag and Drop */
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5 sm:gap-5">
-          {taskLists.map((list) => {
+          {taskLists.map((list, index) => {
             const isDeleting = deletingId === list._id;
+            const isCurrentDragging = draggedIndex === index;
+            const isCurrentOver = dragOverIndex === index;
 
             return (
               <div
                 key={list._id}
-                onClick={() => onSelectList(list._id)}
-                className="group p-5 sm:p-6 rounded-2xl sm:rounded-3xl border border-slate-200/90 dark:border-slate-800/80 bg-white dark:bg-slate-900/70 hover:border-teal-500/40 hover:shadow-xl hover:shadow-teal-500/5 active:scale-[0.99] transition-all duration-200 cursor-pointer flex flex-col justify-between relative overflow-hidden select-none"
+                draggable={true}
+                onDragStart={(e) => handleDragStart(e, index)}
+                onDragEnter={(e) => handleDragEnter(e, index)}
+                onDragOver={handleDragOver}
+                onDrop={(e) => handleDrop(e, index)}
+                onDragEnd={handleDragEnd}
+                onClick={() => {
+                  if (isDraggingRef.current) return;
+                  onSelectList(list._id);
+                }}
+                className={`group p-5 sm:p-6 rounded-2xl sm:rounded-3xl border bg-white dark:bg-slate-900/70 active:scale-[0.99] transition-all duration-200 cursor-pointer flex flex-col justify-between relative overflow-hidden select-none ${
+                  isCurrentDragging
+                    ? 'opacity-40 border-dashed border-teal-500 scale-[0.98]'
+                    : isCurrentOver
+                    ? 'border-teal-500 ring-2 ring-teal-500/40 shadow-xl scale-[1.02]'
+                    : 'border-slate-200/90 dark:border-slate-800/80 hover:border-teal-500/40 hover:shadow-xl hover:shadow-teal-500/5'
+                }`}
               >
                 {/* Accent Top Bar */}
                 <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-teal-500 to-emerald-400 opacity-0 group-hover:opacity-100 transition-opacity" />
 
                 <div>
                   <div className="flex items-start justify-between gap-3 mb-3">
-                    <div className="w-10 h-10 rounded-2xl bg-teal-500/10 border border-teal-500/20 flex items-center justify-center text-teal-500 group-hover:scale-105 transition-transform shrink-0">
-                      <MaterialIcon name="folder" className="text-xl" filled />
+                    <div className="flex items-center gap-2">
+                      {/* Drag Handle Indicator */}
+                      <div
+                        className="w-7 h-7 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 cursor-grab active:cursor-grabbing flex items-center justify-center rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors shrink-0"
+                        title="Drag to change order"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <MaterialIcon name="drag_indicator" className="text-lg" />
+                      </div>
+
+                      <div className="w-10 h-10 rounded-2xl bg-teal-500/10 border border-teal-500/20 flex items-center justify-center text-teal-500 group-hover:scale-105 transition-transform shrink-0">
+                        <MaterialIcon name="folder" className="text-xl" filled />
+                      </div>
                     </div>
 
-                    {/* Action buttons (Clean touch hitboxes for mobile) */}
+                    {/* Action buttons with Randomise, Edit, and Delete */}
                     <div className="flex items-center gap-1 shrink-0">
+                      {/* Randomise Task button near Edit button */}
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setRandomizingList(list);
+                        }}
+                        className="w-9 h-9 sm:w-8 sm:h-8 text-teal-600 dark:text-teal-400 hover:text-teal-700 dark:hover:text-teal-300 rounded-lg hover:bg-teal-50 dark:hover:bg-teal-500/15 active:scale-95 transition-all flex items-center justify-center cursor-pointer"
+                        title="Pick Random Task from this list"
+                        aria-label="Pick Random Task"
+                      >
+                        <MaterialIcon name="casino" className="text-base sm:text-sm" />
+                      </button>
+
+                      {/* Edit List button */}
                       <button
                         type="button"
                         onClick={(e) => {
@@ -238,6 +364,8 @@ export const HomePage: React.FC<HomePageProps> = ({ onSelectList }) => {
                       >
                         <MaterialIcon name="edit" className="text-base sm:text-sm" />
                       </button>
+
+                      {/* Delete List button */}
                       <button
                         type="button"
                         onClick={(e) => {
@@ -307,6 +435,16 @@ export const HomePage: React.FC<HomePageProps> = ({ onSelectList }) => {
         confirmText="Delete List"
         loading={!!deletingId}
       />
+
+      {/* Random Task Modal triggered from tasklist card icon */}
+      {randomizingList && (
+        <RandomTaskModal
+          isOpen={!!randomizingList}
+          onClose={() => setRandomizingList(null)}
+          listId={randomizingList._id}
+          listName={randomizingList.name}
+        />
+      )}
     </div>
   );
 };

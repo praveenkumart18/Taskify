@@ -5,6 +5,7 @@ import {
   getTaskListById,
   updateTaskList,
   deleteTaskList,
+  reorderTaskLists,
 } from '../controllers/taskListController.js';
 import { protect } from '../middleware/authMiddleware.js';
 import { getRandomTask } from '../controllers/taskController.js';
@@ -20,6 +21,9 @@ router.use('/:listId/tasks', taskRoutes);
 
 // Random task route: /api/tasklists/:listId/random
 router.get('/:listId/random', getRandomTask);
+
+// Reorder task lists (must be before /:id)
+router.put('/reorder', reorderTaskLists);
 
 router.route('/')
   .get(getTaskLists)

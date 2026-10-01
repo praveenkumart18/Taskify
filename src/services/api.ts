@@ -101,6 +101,12 @@ export const taskListApi = {
     request(`/tasklists/${id}`, {
       method: 'DELETE',
     }),
+
+  reorder: (listIds: string[]) =>
+    request('/tasklists/reorder', {
+      method: 'PUT',
+      body: JSON.stringify({ listIds }),
+    }),
 };
 
 // Task API

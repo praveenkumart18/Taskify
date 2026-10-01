@@ -11,6 +11,7 @@ export interface TaskList {
   userId: string;
   name: string;
   description?: string;
+  order?: number;
   taskCount?: number;
   completedCount?: number;
   createdAt: string;

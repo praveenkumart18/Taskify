@@ -20,14 +20,19 @@ const taskListSchema = new mongoose.Schema(
       maxlength: [500, 'Description cannot exceed 500 characters'],
       default: '',
     },
+    order: {
+      type: Number,
+      default: 0,
+      index: true,
+    },
   },
   {
     timestamps: true,
   }
 );
 
-// Compound index to quickly fetch user's task lists ordered by updatedAt
-taskListSchema.index({ userId: 1, updatedAt: -1 });
+// Compound index to quickly fetch user's task lists ordered by order and updatedAt
+taskListSchema.index({ userId: 1, order: 1, updatedAt: -1 });
 
 const TaskList = mongoose.model('TaskList', taskListSchema);
 

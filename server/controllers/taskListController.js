@@ -31,6 +31,7 @@ export const getTaskLists = async (req, res) => {
           userId: 1,
           name: 1,
           description: 1,
+          order: { $ifNull: ['$order', 0] },
           taskCount: { $size: '$tasks' },
           createdAt: 1,
           updatedAt: 1,
@@ -38,6 +39,7 @@ export const getTaskLists = async (req, res) => {
       },
       {
         $sort: {
+          order: 1,
           updatedAt: -1,
         },
       },
@@ -74,11 +76,16 @@ export const createTaskList = async (req, res) => {
       });
     }
 
+    // Find current highest order to append to the end
+    const lastList = await TaskList.findOne({ userId: req.user.id }).sort({ order: -1 });
+    const nextOrder = lastList && typeof lastList.order === 'number' ? lastList.order + 1 : 0;
+
     // Strictly enforce ownership: userId comes exclusively from req.user
     const taskList = await TaskList.create({
       name: name.trim(),
       description: description ? description.trim() : '',
       userId: req.user.id,
+      order: nextOrder,
     });
 
     return res.status(201).json({
@@ -89,6 +96,7 @@ export const createTaskList = async (req, res) => {
         name: taskList.name,
         description: taskList.description,
         userId: taskList.userId,
+        order: taskList.order,
         taskCount: 0,
         createdAt: taskList.createdAt,
         updatedAt: taskList.updatedAt,
@@ -264,6 +272,50 @@ export const deleteTaskList = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: 'Server error while deleting task list',
+    });
+  }
+};
+
+/**
+ * @desc    Reorder task lists for the logged-in user
+ * @route   PUT /api/tasklists/reorder
+ * @access  Private
+ */
+export const reorderTaskLists = async (req, res) => {
+  try {
+    const { listIds } = req.body;
+
+    if (!Array.isArray(listIds) || listIds.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'listIds array is required',
+      });
+    }
+
+    const userObjectId = new mongoose.Types.ObjectId(req.user.id);
+
+    const bulkOps = listIds
+      .filter((id) => mongoose.Types.ObjectId.isValid(id))
+      .map((id, index) => ({
+        updateOne: {
+          filter: { _id: new mongoose.Types.ObjectId(id), userId: userObjectId },
+          update: { $set: { order: index } },
+        },
+      }));
+
+    if (bulkOps.length > 0) {
+      await TaskList.bulkWrite(bulkOps);
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: 'Task lists reordered successfully',
+    });
+  } catch (error) {
+    console.error('reorderTaskLists error:', error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || 'Server error while reordering task lists',
     });
   }
 };
